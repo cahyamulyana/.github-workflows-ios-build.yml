@@ -1,56 +1,48 @@
-name: iOS Build and Release
+steps:
+- name: Checkout code
+  uses: actions/checkout@v4
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+- name: Extract iOS build package
+  run: |
+    unzip ios_build_package.zip
+    ls -la
 
-jobs:
-  build-ios:
-    runs-on: macos-latest
+- name: Setup Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: '18'
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+- name: Setup Java
+  uses: actions/setup-java@v4
+  with:
+    distribution: 'temurin'
+    java-version: '11'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
+- name: Install Cordova CLI
+  run: npm install -g cordova@10.0.0
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '11'
+- name: Install dependencies
+  run: |
+    cd ios_build_package/cordova_project
+    npm install
 
-    - name: Install Cordova CLI
-      run: npm install -g cordova@10.0.0
+- name: Add iOS platform
+  run: |
+    cd ios_build_package/cordova_project
+    cordova platform add ios@6.1.0
 
-    - name: Install dependencies
-      run: |
-        cd cordova_project
-        npm install
+- name: Build iOS app
+  run: |
+    cd ios_build_package/cordova_project
+    cordova build ios --release --device
 
-    - name: Add iOS platform
-      run: |
-        cd cordova_project
-        cordova platform add ios@6.1.0
+- name: Create build artifact
+  run: |
+    mkdir -p ios-build
+    cp -r ios_build_package/cordova_project/platforms/ios/build/device/* ios-build/ 2>/dev/null || true
 
-    - name: Build iOS app
-      run: |
-        cd cordova_project
-        cordova build ios --release --device
-
-    - name: Create build artifact
-      run: |
-        mkdir -p ios-build
-        cp -r cordova_project/platforms/ios/build/device/* ios-build/ 2>/dev/null || true
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-build-${{ github.run_number }}
-        path: ios-build/
+- name: Upload build artifacts
+  uses: actions/upload-artifact@v4
+  with:
+    name: ios-build-${{ github.run_number }}
+    path: ios-build/
